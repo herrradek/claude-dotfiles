@@ -1,0 +1,9 @@
+# No secrets
+.env
+*.key
+*.pem
+*credential*
+
+# OS junk
+.DS_Store
+Thumbs.db

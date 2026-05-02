@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Claude Code via DeepSeek's Anthropic-compatible endpoint
+# Usage: claude-deepseek [args...]
+
+unset ANTHROPIC_API_KEY
+ANTHROPIC_BASE_URL="https://api.deepseek.com/anthropic" \
+    claude "$@"

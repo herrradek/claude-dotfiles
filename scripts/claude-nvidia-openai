@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Claude Code via NVIDIA proxy — forces OpenAI GPT-OSS 120B model
+# Usage: claude-nvidia-openai [args...]
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR" || exit 1
+
+# Start proxy if not already running
+if ! curl -s -o /dev/null -w "%{http_code}" http://localhost:8082/v1/models 2>/dev/null | grep -q "422\|200"; then
+    echo "Starting NVIDIA proxy..."
+    nohup uv run uvicorn server:app --host 0.0.0.0 --port 8082 --timeout-graceful-shutdown 5 \
+        > /tmp/nvidia-proxy.log 2>&1 &
+    PROXY_PID=$!
+    for i in {1..15}; do
+        sleep 1
+        if curl -s -o /dev/null -w "%{http_code}" http://localhost:8082/v1/models 2>/dev/null | grep -q "422\|200"; then
+            break
+        fi
+    done
+fi
+
+unset ANTHROPIC_API_KEY
+ANTHROPIC_BASE_URL="http://localhost:8082" ANTHROPIC_AUTH_TOKEN="freecc" \
+    MODEL_OPUS="nvidia_nim/openai/gpt-oss-120b" \
+    MODEL_SONNET="nvidia_nim/openai/gpt-oss-120b" \
+    MODEL_HAIKU="nvidia_nim/openai/gpt-oss-120b" \
+    MODEL="nvidia_nim/openai/gpt-oss-120b" \
+    claude "$@"

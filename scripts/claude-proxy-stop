@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Stop the NVIDIA proxy server
+# Usage: claude-proxy-stop
+
+PID=$(pgrep -f "uvicorn.*server.*8082" | head -1)
+if [ -n "$PID" ]; then
+    echo "Stopping NVIDIA proxy (PID: $PID)..."
+    kill "$PID" 2>/dev/null && echo "Stopped." || echo "Failed to stop."
+else
+    echo "No proxy running on port 8082."
+fi

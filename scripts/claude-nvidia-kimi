@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Claude Code via NVIDIA proxy — Kimi K2.5 (reasoning & analysis)
+# Usage: claude-nvidia-kimi [args...]
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR" || exit 1
+
+if ! curl -s -o /dev/null -w "%{http_code}" http://localhost:8082/v1/models 2>/dev/null | grep -q "422\|200"; then
+    echo "Starting NVIDIA proxy..."
+    nohup uv run uvicorn server:app --host 0.0.0.0 --port 8082 --timeout-graceful-shutdown 5 \
+        > /tmp/nvidia-proxy.log 2>&1 &
+    for i in {1..15}; do
+        sleep 1
+        if curl -s -o /dev/null -w "%{http_code}" http://localhost:8082/v1/models 2>/dev/null | grep -q "422\|200"; then
+            break
+        fi
+    done
+fi
+
+unset ANTHROPIC_API_KEY
+ANTHROPIC_BASE_URL="http://localhost:8082" ANTHROPIC_AUTH_TOKEN="freecc" \
+    MODEL_OPUS="nvidia_nim/moonshotai/kimi-k2.5" \
+    MODEL_SONNET="nvidia_nim/moonshotai/kimi-k2.5" \
+    MODEL_HAIKU="nvidia_nim/moonshotai/kimi-k2.5" \
+    MODEL="nvidia_nim/moonshotai/kimi-k2.5" \
+    claude "$@"

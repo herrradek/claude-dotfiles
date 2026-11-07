@@ -35,6 +35,9 @@ case "$mode" in
     # Settings
     cp "$CLAUDE_DIR/settings.json" "$REPO_DIR/settings.json" 2>/dev/null || true
 
+    # Statusline script
+    cp "$CLAUDE_DIR/statusline-command.sh" "$REPO_DIR/statusline-command.sh" 2>/dev/null || true
+
     # AGENTS.md (user-defined agents)
     cp "$CLAUDE_DIR/AGENTS.md" "$REPO_DIR/AGENTS.md" 2>/dev/null || true
 
@@ -61,6 +64,7 @@ case "$mode" in
     cp "$REPO_DIR/skills/learned/"*.md "$CLAUDE_DIR/skills/learned/" 2>/dev/null || true
     cp "$REPO_DIR/settings.json" "$CLAUDE_DIR/settings.json" 2>/dev/null || true
     cp "$REPO_DIR/AGENTS.md" "$CLAUDE_DIR/AGENTS.md" 2>/dev/null || true
+    cp "$REPO_DIR/statusline-command.sh" "$CLAUDE_DIR/statusline-command.sh" 2>/dev/null || true
 
     # Symlink wrapper scripts into ~/.local/bin
     if [ -d "$REPO_DIR/scripts" ]; then

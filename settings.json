@@ -28,5 +28,9 @@
   "viewMode": "focus",
   "alwaysThinkingEnabled": false,
   "autoMemoryEnabled": false,
-  "showThinkingSummaries": false
+  "showThinkingSummaries": false,
+  "statusLine": {
+    "type": "command",
+    "command": "bash \"$HOME/.claude/statusline-command.sh\""
+  }
 }

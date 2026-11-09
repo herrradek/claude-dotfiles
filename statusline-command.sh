@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Code statusline — "usage meters" style
-#   <Model> | Context NN% | Session NN% | Week NN% | Tokens: N.NNM
+#   <Model> | Context NN% | Session NN% (HH:MM) | Week NN% | Tokens: N.NNM ($N.NN)
 #   Context: amber >=40%, red + KOMPAKTUUUUUUUJ >=50%
 #
 # Data sources (from the JSON piped in on stdin — see Claude Code statusline docs):
@@ -10,23 +10,30 @@
 #   .rate_limits.five_hour.resets_at             -> "(HH:MM)" reset time after Session
 #   .rate_limits.seven_day.used_percentage       -> "Week" (7d subscription window)
 #   .context_window.total_input_tokens/total_output_tokens -> cumulative session tokens
+#   .cost.total_cost_usd                         -> "($N.NN)" after tokens
 #
-# NOTE: There is no per-session USD cost field available to statusLine scripts.
-# The reference screenshot's "Session total: $2.86 (8.53M tokens)" cost figure
-# can't be sourced (or reliably recomputed — token pricing varies by cache
-# read/write tier and model) so this script shows the token count only, no $.
+# The cost is computed by Claude Code itself at API list prices; on a
+# subscription it is an API-equivalent estimate, not an actual bill.
 # rate_limits.* segments are only present for Claude.ai subscribers after the
 # first API response of the session; they're simply omitted otherwise.
+#
+# Performance: one jq call parses everything (incl. reset time formatting);
+# the rest is bash builtins, so each refresh spawns a single child process.
 
+export LC_ALL=C  # printf %.Nf must parse/print a dot, whatever the system locale
 input=$(cat)
 
-model=$(printf '%s' "$input" | jq -r '.model.display_name // "Claude"')
-ctx_used=$(printf '%s' "$input" | jq -r '.context_window.used_percentage // empty')
-five_pct=$(printf '%s' "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
-five_reset=$(printf '%s' "$input" | jq -r '.rate_limits.five_hour.resets_at // empty | if type == "number" then . else (sub("\\.[0-9]+"; "") | fromdateiso8601? // empty) end')
-week_pct=$(printf '%s' "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
-in_tok=$(printf '%s' "$input" | jq -r '.context_window.total_input_tokens // 0')
-out_tok=$(printf '%s' "$input" | jq -r '.context_window.total_output_tokens // 0')
+eval "$(printf '%s' "$input" | jq -r '
+  @sh "model=\(.model.display_name // "Claude")",
+  @sh "ctx_used=\(.context_window.used_percentage // "")",
+  @sh "five_pct=\(.rate_limits.five_hour.used_percentage // "")",
+  @sh "five_reset=\(.rate_limits.five_hour.resets_at // empty
+        | if type == "number" then . else (sub("\\.[0-9]+"; "") | fromdateiso8601? // empty) end
+        | floor | localtime | strftime("%H:%M"))",
+  @sh "week_pct=\(.rate_limits.seven_day.used_percentage // "")",
+  @sh "total_tok=\((.context_window.total_input_tokens // 0) + (.context_window.total_output_tokens // 0))",
+  @sh "cost=\(.cost.total_cost_usd // "")"
+' 2>/dev/null)"
 
 RESET='\033[0m'
 BOLD='\033[1m'
@@ -50,7 +57,7 @@ render_pct() {
 CTX_WARN=40
 CTX_CRIT=50
 
-segments=("${BOLD}${model}${RESET}")
+segments=("${BOLD}${model:-Claude}${RESET}")
 
 if [ -n "$ctx_used" ]; then
   ctx_seg="Context $(render_pct "$ctx_used" "$CTX_WARN" "$CTX_CRIT" "$AMBER")"
@@ -59,15 +66,15 @@ if [ -n "$ctx_used" ]; then
 fi
 if [ -n "$five_pct" ]; then
   five_seg="Session $(render_pct "$five_pct" 50 80)"
-  [ -n "$five_reset" ] && five_seg+=" ${DIM}($(date -r "${five_reset%.*}" +%H:%M))${RESET}"
+  [ -n "$five_reset" ] && five_seg+=" ${DIM}(${five_reset})${RESET}"
   segments+=("$five_seg")
 fi
 [ -n "$week_pct" ] && segments+=("Week $(render_pct "$week_pct" 50 80)")
 
-total_tok=$(( in_tok + out_tok ))
-if [ "$total_tok" -gt 0 ]; then
-  tok_m=$(awk -v t="$total_tok" 'BEGIN { printf "%.2f", t / 1000000 }')
-  segments+=("${DIM}Tokens: ${tok_m}M${RESET}")
+if [ "${total_tok:-0}" -gt 0 ]; then
+  tok_seg="Tokens: $(printf '%d.%02d' $(( total_tok / 1000000 )) $(( total_tok % 1000000 / 10000 )))M"
+  [ -n "$cost" ] && tok_seg+=" ($(printf '$%.2f' "$cost"))"
+  segments+=("${DIM}${tok_seg}${RESET}")
 fi
 
 out=""

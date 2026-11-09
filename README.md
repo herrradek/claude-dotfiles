@@ -13,7 +13,7 @@ Syncs across machines via GitHub. Intended for your personal `~/.claude` directo
 | `rules/web/` | Web/frontend-specific rules |
 | `skills/learned/` | Patterns extracted via `/learn` |
 | `scripts/` | Claude Code backend switchers (`claude-nvidia`, `claude-deepseek`, etc.) |
-| `statusline-command.sh` | Statusline: model, Context % (amber ≥40%, red + KOMPAKTUUUUUUUJ ≥50%), Session % (reset time), Week %, tokens |
+| `statusline-command.sh` | Statusline: model, Context % (amber ≥40%, red + KOMPAKTUUUUUUUJ ≥50%), Session % (reset time), Week %, tokens + API-equivalent cost; single jq call per refresh |
 | `settings.json` | Plugin toggles, view mode, model preference |
 | `AGENTS.md` | Custom agent definitions |
 

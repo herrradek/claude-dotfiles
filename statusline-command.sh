@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Code statusline — "usage meters" style
-#   <Model> | Context NN% | Session NN% (HH:MM) | Week NN% | Tokens: N.NNM ($N.NN)
+#   <Model> | Context NN% | Session NN% (HH:MM) | Week NN% (Ddd HH:MM) | Tokens: N.NNM ($N.NN)
 #   Context: amber >=40%, red + KOMPAKTUUUUUUUJ >=50%
 #
 # Data sources (from the JSON piped in on stdin — see Claude Code statusline docs):
@@ -9,6 +9,7 @@
 #   .rate_limits.five_hour.used_percentage       -> "Session" (5h subscription window)
 #   .rate_limits.five_hour.resets_at             -> "(HH:MM)" reset time after Session
 #   .rate_limits.seven_day.used_percentage       -> "Week" (7d subscription window)
+#   .rate_limits.seven_day.resets_at             -> "(Ddd HH:MM)" reset day/time after Week
 #   .context_window.total_input_tokens/total_output_tokens -> cumulative session tokens
 #   .cost.total_cost_usd                         -> "($N.NN)" after tokens
 #
@@ -31,6 +32,9 @@ eval "$(printf '%s' "$input" | jq -r '
         | if type == "number" then . else (sub("\\.[0-9]+"; "") | fromdateiso8601? // empty) end
         | floor | localtime | strftime("%H:%M"))",
   @sh "week_pct=\(.rate_limits.seven_day.used_percentage // "")",
+  @sh "week_reset=\(.rate_limits.seven_day.resets_at // empty
+        | if type == "number" then . else (sub("\\.[0-9]+"; "") | fromdateiso8601? // empty) end
+        | floor | localtime | strftime("%a %H:%M"))",
   @sh "total_tok=\((.context_window.total_input_tokens // 0) + (.context_window.total_output_tokens // 0))",
   @sh "cost=\(.cost.total_cost_usd // "")"
 ' 2>/dev/null)"
@@ -69,7 +73,11 @@ if [ -n "$five_pct" ]; then
   [ -n "$five_reset" ] && five_seg+=" ${DIM}(${five_reset})${RESET}"
   segments+=("$five_seg")
 fi
-[ -n "$week_pct" ] && segments+=("Week $(render_pct "$week_pct" 50 80)")
+if [ -n "$week_pct" ]; then
+  week_seg="Week $(render_pct "$week_pct" 50 80)"
+  [ -n "$week_reset" ] && week_seg+=" ${DIM}(${week_reset})${RESET}"
+  segments+=("$week_seg")
+fi
 
 if [ "${total_tok:-0}" -gt 0 ]; then
   tok_seg="Tokens: $(printf '%d.%02d' $(( total_tok / 1000000 )) $(( total_tok % 1000000 / 10000 )))M"
